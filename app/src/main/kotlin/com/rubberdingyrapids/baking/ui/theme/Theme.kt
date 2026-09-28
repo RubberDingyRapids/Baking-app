@@ -1,73 +1,46 @@
-@file:OptIn(
-    androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
-)
-
 package com.rubberdingyrapids.baking.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val LightColors = lightColorScheme(
-    primary = Caramel,
-    onPrimary = OnCaramel,
-    primaryContainer = CaramelContainer,
-    onPrimaryContainer = OnCaramelContainer,
-    secondary = Sage,
-    secondaryContainer = SageContainer,
-    onSecondaryContainer = OnSageContainer,
-    tertiary = Berry,
-    tertiaryContainer = BerryContainer,
-    onTertiaryContainer = OnBerryContainer,
-    background = Cream,
-    onBackground = OnCream,
-    surface = Cream,
-    onSurface = OnCream,
-    surfaceVariant = CreamSurfaceVariant,
-    onSurfaceVariant = OnCreamSurfaceVariant,
-    outline = CreamOutline,
+private val EditorDark = darkColorScheme(
+    primary = ClayOrange,
+    onPrimary = Color(0xFF2E1509),
+    primaryContainer = Color(0xFF4A2E1F),
+    onPrimaryContainer = Color(0xFFFFDBC8),
+
+    secondary = VsBlue,
+    onSecondary = Color(0xFF00344C),
+    secondaryContainer = Color(0xFF203040),
+    onSecondaryContainer = Color(0xFFD3EAFB),
+
+    tertiary = Color(0xFFCE9178),
+    onTertiary = Color(0xFF3B2015),
+    tertiaryContainer = Color(0xFF4A3327),
+    onTertiaryContainer = Color(0xFFFFDBC8),
+
+    background = CodeBackground,
+    onBackground = CodeText,
+
+    surface = CodePanel,
+    onSurface = CodeText,
+    surfaceVariant = CodeSurfaceVariant,
+    onSurfaceVariant = CodeTextMuted,
+
+    outline = ClayOrange,
+    outlineVariant = CodeBorder,
+
+    error = Color(0xFFF48771),
+    onError = Color(0xFF3B0A02),
+
+    surfaceTint = Color.Transparent,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = CaramelLight,
-    onPrimary = OnCaramelContainer,
-    primaryContainer = CaramelDark,
-    onPrimaryContainer = CaramelContainer,
-    secondary = SageContainer,
-    secondaryContainer = Sage,
-    onSecondaryContainer = SageContainer,
-    tertiary = BerryContainer,
-    tertiaryContainer = Berry,
-    onTertiaryContainer = BerryContainer,
-    background = Cocoa,
-    onBackground = OnCocoa,
-    surface = Cocoa,
-    onSurface = OnCocoa,
-    surfaceVariant = CocoaSurfaceVariant,
-    onSurfaceVariant = OnCocoaSurfaceVariant,
-    outline = CocoaOutline,
-)
-
+/** Always dark, like the Things-to-do app it shares a look with. */
 @Composable
-fun BakingTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit,
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
-    MaterialTheme(colorScheme = colorScheme, typography = BakingTypography, content = content)
+fun BakingTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = EditorDark, typography = Typography(), content = content)
 }

@@ -59,7 +59,7 @@ fun TagChip(tag: String, modifier: Modifier = Modifier) {
         Text(
             text = tag,
             style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF2B1D12),
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
         )
     }
