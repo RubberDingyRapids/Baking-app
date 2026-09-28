@@ -64,7 +64,10 @@ data class CookUiState(
     val recipe: Recipe? get() = plan?.recipe
 
     val allIngredientsChecked: Boolean
-        get() = recipe != null && recipe.ingredients.all { it.id in checkedIngredients }
+        get() {
+            val r = recipe ?: return false
+            return r.ingredients.all { it.id in checkedIngredients }
+        }
 
     /** Steps the cook can work on right now: not done, and everything they use is done. */
     val activeIds: Set<String>

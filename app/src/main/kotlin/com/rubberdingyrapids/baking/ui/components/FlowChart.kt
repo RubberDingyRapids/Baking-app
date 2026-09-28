@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.SubdirectoryArrowLeft
-import androidx.compose.material.icons.automirrored.filled.SubdirectoryArrowRight
+import androidx.compose.material.icons.filled.SubdirectoryArrowLeft
+import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -84,12 +84,12 @@ private fun ConnectorRow(layout: FlowLayout, level: Int) {
                 when {
                     consumer != null && consumer.lane == lane -> FlowConnector()
                     consumer != null && consumer.lane < lane -> Icon(
-                        Icons.AutoMirrored.Filled.SubdirectoryArrowLeft,
+                        Icons.Filled.SubdirectoryArrowLeft,
                         contentDescription = "Joins the lane to the left",
                         tint = MaterialTheme.colorScheme.outline,
                     )
                     consumer != null -> Icon(
-                        Icons.AutoMirrored.Filled.SubdirectoryArrowRight,
+                        Icons.Filled.SubdirectoryArrowRight,
                         contentDescription = "Joins the lane to the right",
                         tint = MaterialTheme.colorScheme.outline,
                     )
