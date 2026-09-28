@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +40,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -113,6 +115,7 @@ fun StepSheet(
     availableItems: List<FlowItem>,
     onDismiss: () -> Unit,
     onSubmit: (Step) -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val itemsById = remember(availableItems) { availableItems.associateBy { it.id } }
@@ -315,6 +318,14 @@ fun StepSheet(
                     shape = RoundedCornerShape(16.dp),
                 ) {
                     Text(if (existing == null) "Add step" else "Save step")
+                }
+                if (existing != null && onDelete != null) {
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete step", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }

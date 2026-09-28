@@ -156,12 +156,21 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 issues = stepAnalysis.issues,
                                 onClick = { sheet = SheetTarget(stepAnalysis.step, index) },
                                 trailing = {
-                                    Icon(
-                                        Icons.Default.DragHandle,
-                                        contentDescription = "Hold and drag to reorder",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(8.dp).dragHandle(dragState, index),
-                                    )
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Default.DragHandle,
+                                            contentDescription = "Hold and drag to reorder",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(8.dp).dragHandle(dragState, index),
+                                        )
+                                        IconButton(onClick = { viewModel.deleteStep(stepAnalysis.step.id) }) {
+                                            Icon(
+                                                Icons.Outlined.Delete,
+                                                contentDescription = "Delete step",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
                                 },
                             )
                         }
@@ -193,6 +202,7 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                 if (target.step == null) viewModel.addStep(step) else viewModel.updateStep(step)
                 sheet = null
             },
+            onDelete = target.step?.let { existing -> { viewModel.deleteStep(existing.id); sheet = null } },
         )
     }
 }
