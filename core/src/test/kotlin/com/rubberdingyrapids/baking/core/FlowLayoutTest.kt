@@ -95,6 +95,18 @@ class FlowLayoutTest {
     }
 
     @Test
+    fun `a served dish is final and never offered again`() {
+        val serve = Step(id = "serve", action = ActionType.SERVE, inputs = listOf(StepInput("fryChips"), StepInput("fryFish")))
+        val r = fishAndChips.copy(steps = listOf(cutChips, fryChips, cutFish, fryFish, serve))
+        val analysis = FlowEngine.analyse(r)
+        assertTrue(analysis.isValid)
+        assertFalse(analysis.leftovers.any { it.id == "serve" })
+        assertFalse(FlowEngine.editableItems(r, null).any { it.id == "serve" })
+        assertEquals("fried chopped potatoes + oil + fried chopped fish + oil", analysis.steps.last().output.name)
+        assertEquals(0, FlowLayoutEngine.layout(r).byId.getValue("serve").lane)
+    }
+
+    @Test
     fun `new actions name their results`() {
         assertEquals("chopped onion", FlowEngine.suggestOutputName(Step(action = ActionType.CHOP), listOf("onion")))
         assertEquals("fried chopped potatoes", FlowEngine.suggestOutputName(Step(action = ActionType.FRY), listOf("chopped potatoes")))

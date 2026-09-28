@@ -31,6 +31,7 @@ enum class ActionType(
     BAKE("Bake", "baked"),
     ROAST("Roast", "roasted"),
     WAIT("Wait", "rested"),
+    SERVE("Serve", "served"),
     CUSTOM("Custom", "");
 
     /** Wait and custom steps may stand alone ("rest 10 minutes"); everything else needs ingredients. */
@@ -44,6 +45,9 @@ enum class ActionType(
 
     /** Oven actions take a temperature. */
     val hasTemperature: Boolean get() = this == BAKE || this == ROAST
+
+    /** A serve step ends a flow: what it produces is the finished dish and cannot be used again. */
+    val isTerminal: Boolean get() = this == SERVE
 }
 
 /**

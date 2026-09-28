@@ -16,7 +16,8 @@ cook it.
   switcher (g, kg, oz, lb, ml, l, cup, tbsp, tsp, pieces) that converts amounts
   where it can.
 - Flow-chart method editor: chop, mix, whisk, add, melt, fry, boil, simmer,
-  bake, roast, wait or a custom action. Steps use whole items or a part of
+  bake, roast, wait, serve or a custom action. Serve ends a flow: its result is
+  the finished dish. Steps use whole items or a part of
   them; intermediates get an auto-generated, editable name. Independent
   steps are laid out in parallel lanes automatically.
 - Cooking steps can carry a time; bake and roast take a temperature (°C/°F)

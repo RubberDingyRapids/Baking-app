@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Blender
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.OutdoorGrill
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.Water
 import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material.icons.outlined.Whatshot
@@ -67,6 +68,7 @@ fun actionIcon(action: ActionType): ImageVector = when (action) {
     ActionType.BAKE -> Icons.Outlined.LocalFireDepartment
     ActionType.ROAST -> Icons.Outlined.Whatshot
     ActionType.WAIT -> Icons.Outlined.HourglassEmpty
+    ActionType.SERVE -> Icons.Outlined.Restaurant
     ActionType.CUSTOM -> Icons.Outlined.Build
 }
 
@@ -119,9 +121,11 @@ fun StepCard(
     extraContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val container = when (appearance) {
-        StepAppearance.Current -> scheme.primaryContainer
-        StepAppearance.Completed -> scheme.surfaceVariant.copy(alpha = 0.35f)
+    val container = when {
+        appearance == StepAppearance.Completed -> scheme.surfaceVariant.copy(alpha = 0.35f)
+        step.action.isTerminal && appearance == StepAppearance.Current -> scheme.tertiaryContainer
+        appearance == StepAppearance.Current -> scheme.primaryContainer
+        step.action.isTerminal -> scheme.tertiaryContainer.copy(alpha = 0.6f)
         else -> scheme.surfaceVariant.copy(alpha = 0.6f)
     }
     val alpha = when (appearance) {

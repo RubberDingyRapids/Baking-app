@@ -79,14 +79,19 @@ object FlowEngine {
         recipe.steps.take(stepIndex.coerceIn(0, recipe.steps.size)).forEach { step ->
             applyStep(step, state)
         }
-        return state.values.filter { it.isAvailable }
+        return state.values.filter { it.isAvailable && it.id !in finishedDishes(recipe) }
     }
 
     fun analyse(recipe: Recipe): FlowAnalysis {
         val state = initialState(recipe)
         val analyses = recipe.steps.mapIndexed { index, step -> applyStep(step, state, index) }
-        return FlowAnalysis(analyses, state.values.filter { it.isAvailable })
+        val served = finishedDishes(recipe)
+        return FlowAnalysis(analyses, state.values.filter { it.isAvailable && it.id !in served })
     }
+
+    /** Outputs of serve steps: finished dishes that no later step may use. */
+    private fun finishedDishes(recipe: Recipe): Set<String> =
+        recipe.steps.filter { it.action.isTerminal }.map { it.id }.toSet()
 
     /** The name that will be suggested for a step's output given its inputs. */
     fun suggestOutputName(step: Step, inputNames: List<String>): String {
@@ -95,6 +100,7 @@ object FlowEngine {
         return when (step.action) {
             ActionType.MIX -> if (inputNames.size == 1) "mixed $names" else "$names mix"
             ActionType.ADD -> names
+            ActionType.SERVE -> names
             ActionType.CUSTOM -> "${step.customLabel.trim().lowercase().ifBlank { "prepared" }} $names"
             else -> "${step.action.pastTense} $names"
         }
