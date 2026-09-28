@@ -41,10 +41,12 @@ class RecipeStore(
     private val _recipes = MutableStateFlow<List<Recipe>>(emptyList())
     val recipes: StateFlow<List<Recipe>> = _recipes.asStateFlow()
 
-    private var loaded = false
+    private val _loaded = MutableStateFlow(false)
+    /** True once the library file has been read (or found absent). */
+    val loaded: StateFlow<Boolean> = _loaded.asStateFlow()
 
     suspend fun load() = mutex.withLock {
-        if (loaded) return@withLock
+        if (_loaded.value) return@withLock
         val library = withContext(io) {
             if (!file.exists()) return@withContext RecipeLibrary()
             runCatching { RecipeJson.decodeLibrary(file.readText()) }.getOrElse {
@@ -54,7 +56,7 @@ class RecipeStore(
             }
         }
         _recipes.value = library.recipes.sortedByDescending { it.updatedAt }
-        loaded = true
+        _loaded.value = true
     }
 
     fun get(id: String): Recipe? = _recipes.value.firstOrNull { it.id == id }

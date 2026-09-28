@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Baking</string>
+    <string name="timer_channel_name">Timers</string>
+    <string name="timer_channel_description">Rings when a bake or wait timer finishes</string>
+    <string name="timer_done_title">Timer finished</string>
+</resources>

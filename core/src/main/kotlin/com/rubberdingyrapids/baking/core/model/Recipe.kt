@@ -21,7 +21,8 @@ enum class ActionType(val label: String) {
     WAIT("Wait"),
     CUSTOM("Custom");
 
-    val usesInputs: Boolean get() = true
+    /** Wait and custom steps may stand alone ("rest 10 minutes"); everything else needs ingredients. */
+    val requiresInputs: Boolean get() = this != WAIT && this != CUSTOM
     val hasDuration: Boolean get() = this == BAKE || this == WAIT
     val hasTemperature: Boolean get() = this == BAKE
 }

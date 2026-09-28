@@ -150,7 +150,7 @@ object FlowEngine {
     private fun applyStep(step: Step, state: LinkedHashMap<String, FlowItem>, index: Int = 0): StepAnalysis {
         val issues = mutableListOf<FlowIssue>()
         val resolved = mutableListOf<ResolvedInput>()
-        if (step.inputs.isEmpty()) issues += FlowIssue.NoInputs()
+        if (step.inputs.isEmpty() && step.action.requiresInputs) issues += FlowIssue.NoInputs()
 
         step.inputs.forEach { input ->
             val item = state[input.itemId]
