@@ -6,6 +6,7 @@
 package com.rubberdingyrapids.baking.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.padding
@@ -26,10 +27,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rubberdingyrapids.baking.core.flow.FlowAnalysis
@@ -49,6 +54,8 @@ fun FlowChart(
     layout: FlowLayout,
     modifier: Modifier = Modifier,
     mutedLane: (FlowNode) -> Boolean = { false },
+    /** When the chart scrolls sideways, bring this step's lane into view. */
+    revealStepId: String? = null,
     stepCard: @Composable (step: StepAnalysis, node: FlowNode, compact: Boolean) -> Unit,
 ) {
     val byId = analysis.steps.associateBy { it.step.id }
@@ -59,20 +66,34 @@ fun FlowChart(
         // Lanes never get narrower than [minLaneWidth]; when they don't all fit the chart scrolls sideways.
         val gap = 8.dp
         val fitted = (maxWidth - gap * (layout.laneCount - 1)) / layout.laneCount
-        val laneWidth = if (layout.laneCount == 1) maxWidth else maxOf(minLaneWidth, fitted)
+        // Squeeze lanes to fit while they stay usable; below that, keep them readable and scroll.
+        val laneWidth = when {
+            layout.laneCount == 1 -> maxWidth
+            fitted >= squeezeLaneWidth -> fitted
+            else -> maxOf(scrollLaneWidth, fitted)
+        }
         val totalWidth = laneWidth * layout.laneCount + gap * (layout.laneCount - 1)
         val overflows = totalWidth > maxWidth
         val scroll = rememberScrollState()
+        val density = LocalDensity.current
+
+        LaunchedEffect(revealStepId, overflows, laneWidth) {
+            if (!overflows || revealStepId == null) return@LaunchedEffect
+            val node = layout.byId[revealStepId] ?: return@LaunchedEffect
+            val target = with(density) { ((laneWidth + gap) * node.lane).toPx() }.toInt()
+            scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
+        }
 
         Column(Modifier.fillMaxWidth()) {
             if (overflows) {
                 Text(
-                    "${layout.laneCount} things happen side by side · swipe sideways",
+                    "${layout.laneCount} things happen side by side · swipe sideways to see them all",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
+            Box(Modifier.fillMaxWidth()) {
             Column(
                 Modifier
                     .then(if (overflows) Modifier.horizontalScroll(scroll) else Modifier)
@@ -99,12 +120,36 @@ fun FlowChart(
                     }
                 }
             }
+            // Fades at the edges show there is more chart to swipe to.
+            val fade = MaterialTheme.colorScheme.surface
+            if (overflows && scroll.canScrollForward) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(28.dp)
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, fade))),
+                )
+            }
+            if (overflows && scroll.canScrollBackward) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxHeight()
+                        .width(28.dp)
+                        .background(Brush.horizontalGradient(listOf(fade, Color.Transparent))),
+                )
+            }
+            }
         }
     }
 }
 
-/** Narrowest a lane may be before the chart starts scrolling sideways. */
-private val minLaneWidth = 200.dp
+/** Lanes may shrink down to this width so two fit on a phone side by side. */
+private val squeezeLaneWidth = 150.dp
+
+/** Below the squeeze width the chart scrolls instead, with lanes this wide. */
+private val scrollLaneWidth = 200.dp
 
 /** Arrows between two rows: straight down where a lane continues, bent where it joins another lane. */
 @Composable

@@ -49,6 +49,7 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     val analysis = remember(draft) { FlowEngine.analyse(draft) }
     val layout = remember(draft) { FlowLayoutEngine.layout(draft) }
     var sheet by remember { mutableStateOf<SheetTarget?>(null) }
+    var reveal by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -91,7 +92,7 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                     modifier = Modifier.padding(top = 48.dp),
                 )
             } else {
-                FlowChart(analysis = analysis, layout = layout) { stepAnalysis, _, compact ->
+                FlowChart(analysis = analysis, layout = layout, revealStepId = reveal) { stepAnalysis, _, compact ->
                     StepCard(
                         step = stepAnalysis.step,
                         index = stepAnalysis.index,
@@ -134,6 +135,7 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             onDismiss = { sheet = null },
             onSubmit = { step ->
                 if (target.step == null) viewModel.addStep(step) else viewModel.updateStep(step)
+                reveal = step.id
                 sheet = null
             },
             onDelete = target.step?.let { existing -> { viewModel.deleteStep(existing.id); sheet = null } },
