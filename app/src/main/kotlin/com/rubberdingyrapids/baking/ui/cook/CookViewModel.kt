@@ -90,8 +90,9 @@ class CookViewModel(
     val state: StateFlow<CookUiState> = combine(
         recipeFlow, phase, checked, completed, expanded, timers.timers,
     ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val (loaded, recipe) = values[0] as Pair<Boolean, Recipe?>
+        val header = values[0] as Pair<*, *>
+        val loaded = header.first as Boolean
+        val recipe = header.second as Recipe?
         val items = recipe?.let(::buildItems) ?: emptyList()
         CookUiState(
             loaded = loaded,
