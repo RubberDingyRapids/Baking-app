@@ -6,6 +6,10 @@
 package com.rubberdingyrapids.baking.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +24,13 @@ import androidx.compose.material.icons.filled.SubdirectoryArrowLeft
 import androidx.compose.material.icons.filled.SubdirectoryArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rubberdingyrapids.baking.core.flow.FlowAnalysis
 import com.rubberdingyrapids.baking.core.flow.FlowLayout
@@ -47,22 +53,48 @@ fun FlowChart(
 ) {
     val byId = analysis.steps.associateBy { it.step.id }
     val compact = layout.laneCount > 1
-    Column(modifier.fillMaxWidth()) {
-        layout.rows.forEachIndexed { rowIndex, row ->
-            val level = row.first().level
-            if (rowIndex > 0) ConnectorRow(layout, level)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+    if (layout.laneCount == 0) return
+
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        // Lanes never get narrower than [minLaneWidth]; when they don't all fit the chart scrolls sideways.
+        val gap = 8.dp
+        val fitted = (maxWidth - gap * (layout.laneCount - 1)) / layout.laneCount
+        val laneWidth = if (layout.laneCount == 1) maxWidth else maxOf(minLaneWidth, fitted)
+        val totalWidth = laneWidth * layout.laneCount + gap * (layout.laneCount - 1)
+        val overflows = totalWidth > maxWidth
+        val scroll = rememberScrollState()
+
+        Column(Modifier.fillMaxWidth()) {
+            if (overflows) {
+                Text(
+                    "${layout.laneCount} things happen side by side · swipe sideways",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+            Column(
+                Modifier
+                    .then(if (overflows) Modifier.horizontalScroll(scroll) else Modifier)
+                    .width(totalWidth),
             ) {
-                for (lane in 0 until layout.laneCount) {
-                    val node = row.firstOrNull { it.lane == lane }
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
-                        when {
-                            node != null -> byId[node.stepId]?.let { stepCard(it, node, compact) }
-                            layout.laneInFlight(lane, level) -> InFlightLine(
-                                muted = layout.nodes.firstOrNull { it.lane == lane && it.level < level }?.let(mutedLane) ?: false,
-                            )
+                layout.rows.forEachIndexed { rowIndex, row ->
+                    val level = row.first().level
+                    if (rowIndex > 0) ConnectorRow(layout, level, laneWidth, gap)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(gap),
+                        modifier = Modifier.width(totalWidth).height(IntrinsicSize.Min),
+                    ) {
+                        for (lane in 0 until layout.laneCount) {
+                            val node = row.firstOrNull { it.lane == lane }
+                            Box(Modifier.width(laneWidth).fillMaxHeight()) {
+                                when {
+                                    node != null -> byId[node.stepId]?.let { stepCard(it, node, compact) }
+                                    layout.laneInFlight(lane, level) -> InFlightLine(
+                                        muted = layout.nodes.firstOrNull { it.lane == lane && it.level < level }?.let(mutedLane) ?: false,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -71,12 +103,15 @@ fun FlowChart(
     }
 }
 
+/** Narrowest a lane may be before the chart starts scrolling sideways. */
+private val minLaneWidth = 200.dp
+
 /** Arrows between two rows: straight down where a lane continues, bent where it joins another lane. */
 @Composable
-private fun ConnectorRow(layout: FlowLayout, level: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+private fun ConnectorRow(layout: FlowLayout, level: Int, laneWidth: Dp, gap: Dp) {
+    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
         for (lane in 0 until layout.laneCount) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(laneWidth), contentAlignment = Alignment.Center) {
                 val above = layout.nodes.firstOrNull { it.lane == lane && it.level == level - 1 }
                 val consumer = above?.let { node ->
                     layout.nodes.firstOrNull { it.level == level && node.stepId in it.dependsOn }
@@ -103,7 +138,7 @@ private fun ConnectorRow(layout: FlowLayout, level: Int) {
 
 /** Dashed line showing that something made earlier on this lane is waiting to be used. */
 @Composable
-private fun InFlightLine(modifier: Modifier = Modifier, muted: Boolean = false, height: androidx.compose.ui.unit.Dp? = null) {
+private fun InFlightLine(modifier: Modifier = Modifier, muted: Boolean = false, height: Dp? = null) {
     val color = MaterialTheme.colorScheme.outline.copy(alpha = if (muted) 0.25f else 0.5f)
     val sized = if (height != null) modifier.height(height) else modifier.fillMaxHeight()
     Box(sized.fillMaxWidth(), contentAlignment = Alignment.Center) {

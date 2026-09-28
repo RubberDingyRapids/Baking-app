@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -132,22 +133,82 @@ fun StepCard(
         elevation = CardDefaults.cardElevation(defaultElevation = if (appearance == StepAppearance.Current) 3.dp else 0.dp),
         modifier = modifier.fillMaxWidth().alpha(alpha),
     ) {
-        val pad = if (compact) 8.dp else 12.dp
-        Row(Modifier.padding(start = pad, end = if (compact) 4.dp else 8.dp, top = pad, bottom = pad), verticalAlignment = Alignment.Top) {
-            if (leading != null) {
-                leading()
-                Spacer(Modifier.width(8.dp))
+        val pad = if (compact) 10.dp else 12.dp
+        val body: @Composable ColumnScope.() -> Unit = {
+            if (inputs.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = inputs.joinToString(" · ") { it.describe() },
+                    style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
+                )
             }
-            Column(Modifier.weight(1f)) {
-                if (compact) {
-                    ActionBadge(step, index)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = outputName,
-                        style = MaterialTheme.typography.titleSmall,
-                        textDecoration = if (appearance == StepAppearance.Completed) TextDecoration.LineThrough else null,
-                    )
-                } else {
+            val meta = buildList {
+                step.durationSeconds?.takeIf { it > 0 }?.let { add(Icons.Outlined.Schedule to TimeFormat.short(it)) }
+                step.temperature?.let { add(Icons.Outlined.Thermostat to it.format()) }
+            }
+            if (meta.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    meta.forEach { (icon, text) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = scheme.primary)
+                            Spacer(Modifier.width(4.dp))
+                            Text(text, style = MaterialTheme.typography.labelLarge, color = scheme.primary, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    if (step.preheat) {
+                        Text("preheat", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                    }
+                }
+            }
+            if (showNote && step.note.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(step.note, style = MaterialTheme.typography.bodyMedium)
+            }
+            issues.forEach { issue ->
+                Spacer(Modifier.height(4.dp))
+                Text(issue.message, style = MaterialTheme.typography.labelLarge, color = scheme.error)
+            }
+            if (extraContent != null) {
+                Spacer(Modifier.height(10.dp))
+                extraContent()
+            }
+        }
+
+        if (compact) {
+            // Narrow lane: controls on one line at the top, then the text uses the full width.
+            Column(Modifier.padding(start = pad, end = 6.dp, top = 8.dp, bottom = pad)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    if (leading != null) {
+                        leading()
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    ActionBadge(step, index, showLabel = false)
+                    Spacer(Modifier.weight(1f))
+                    if (trailing != null) trailing()
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = step.actionLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.primary,
+                    maxLines = 1,
+                )
+                Text(
+                    text = outputName,
+                    style = MaterialTheme.typography.titleSmall,
+                    textDecoration = if (appearance == StepAppearance.Completed) TextDecoration.LineThrough else null,
+                )
+                body()
+            }
+        } else {
+            Row(Modifier.padding(start = pad, end = 8.dp, top = pad, bottom = pad), verticalAlignment = Alignment.Top) {
+                if (leading != null) {
+                    leading()
+                    Spacer(Modifier.width(8.dp))
+                }
+                Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ActionBadge(step, index)
                         Spacer(Modifier.width(10.dp))
@@ -157,57 +218,19 @@ fun StepCard(
                             textDecoration = if (appearance == StepAppearance.Completed) TextDecoration.LineThrough else null,
                         )
                     }
+                    body()
                 }
-                if (inputs.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = inputs.joinToString(" · ") { it.describe() },
-                        style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
-                        color = scheme.onSurfaceVariant,
-                    )
+                if (trailing != null) {
+                    Spacer(Modifier.width(4.dp))
+                    trailing()
                 }
-                val meta = buildList {
-                    step.durationSeconds?.takeIf { it > 0 }?.let { add(Icons.Outlined.Schedule to TimeFormat.short(it)) }
-                    step.temperature?.let { add(Icons.Outlined.Thermostat to it.format()) }
-                }
-                if (meta.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        meta.forEach { (icon, text) ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = scheme.primary)
-                                Spacer(Modifier.width(4.dp))
-                                Text(text, style = MaterialTheme.typography.labelLarge, color = scheme.primary)
-                            }
-                        }
-                        if (step.preheat) {
-                            Text("preheat", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                        }
-                    }
-                }
-                if (showNote && step.note.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(step.note, style = MaterialTheme.typography.bodyMedium)
-                }
-                issues.forEach { issue ->
-                    Spacer(Modifier.height(4.dp))
-                    Text(issue.message, style = MaterialTheme.typography.labelLarge, color = scheme.error)
-                }
-                if (extraContent != null) {
-                    Spacer(Modifier.height(10.dp))
-                    extraContent()
-                }
-            }
-            if (trailing != null) {
-                Spacer(Modifier.width(4.dp))
-                trailing()
             }
         }
     }
 }
 
 @Composable
-private fun ActionBadge(step: Step, index: Int) {
+private fun ActionBadge(step: Step, index: Int, showLabel: Boolean = true) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -220,10 +243,21 @@ private fun ActionBadge(step: Step, index: Int) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
             fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
         )
         Spacer(Modifier.width(6.dp))
-        Icon(actionIcon(step.action), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(step.actionLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
+        Icon(actionIcon(step.action), contentDescription = step.actionLabel, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(14.dp))
+        if (showLabel) {
+            Spacer(Modifier.width(4.dp))
+            Text(
+                step.actionLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
     }
 }
