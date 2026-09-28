@@ -94,12 +94,9 @@ object FlowEngine {
         if (inputNames.isEmpty()) return step.actionLabel.lowercase()
         return when (step.action) {
             ActionType.MIX -> if (inputNames.size == 1) "mixed $names" else "$names mix"
-            ActionType.WHISK -> "whisked $names"
-            ActionType.MELT -> "melted $names"
             ActionType.ADD -> names
-            ActionType.BAKE -> "baked $names"
-            ActionType.WAIT -> "rested $names"
             ActionType.CUSTOM -> "${step.customLabel.trim().lowercase().ifBlank { "prepared" }} $names"
+            else -> "${step.action.pastTense} $names"
         }
     }
 
@@ -128,6 +125,61 @@ object FlowEngine {
             }
         }
         return names
+    }
+
+    // ---- branches ---------------------------------------------------------
+
+    /** Ids of the steps whose output each step consumes. Raw ingredients are not steps and are ignored. */
+    fun dependencies(recipe: Recipe): Map<String, Set<String>> {
+        val stepIds = recipe.steps.map { it.id }.toSet()
+        return recipe.steps.associate { step ->
+            step.id to step.inputs.map { it.itemId }.filter { it in stepIds }.toSet()
+        }
+    }
+
+    /** Every step that (transitively) consumes the output of [stepId]. */
+    fun dependents(recipe: Recipe, stepId: String): Set<String> {
+        val deps = dependencies(recipe)
+        val result = mutableSetOf<String>()
+        var frontier = setOf(stepId)
+        while (frontier.isNotEmpty()) {
+            val next = deps.filter { (id, d) -> id !in result && d.any { it in frontier } }.keys
+            result += next
+            frontier = next
+        }
+        return result
+    }
+
+    /**
+     * Reorders steps so every step comes after the steps it consumes from,
+     * keeping the existing order otherwise. Editing a step may make it use a
+     * later step's output, and the sequential analysis relies on this order.
+     */
+    fun normalise(recipe: Recipe): Recipe {
+        val deps = dependencies(recipe)
+        val remaining = recipe.steps.toMutableList()
+        val ordered = mutableListOf<Step>()
+        val placed = mutableSetOf<String>()
+        while (remaining.isNotEmpty()) {
+            val next = remaining.firstOrNull { step -> deps.getValue(step.id).all { it in placed } }
+                ?: remaining.first() // a cycle; keep going rather than hang
+            remaining.remove(next)
+            ordered += next
+            placed += next.id
+        }
+        return if (ordered.map { it.id } == recipe.steps.map { it.id }) recipe else recipe.copy(steps = ordered)
+    }
+
+    /**
+     * Items a step may use while being edited: everything left after all the
+     * other steps, ignoring the step itself and anything downstream of it
+     * (which would create a loop). Pass null for a brand new step.
+     */
+    fun editableItems(recipe: Recipe, stepId: String?): List<FlowItem> {
+        if (stepId == null) return analyse(recipe).leftovers
+        val excluded = dependents(recipe, stepId) + stepId
+        val without = recipe.copy(steps = recipe.steps.filterNot { it.id in excluded })
+        return analyse(without).leftovers
     }
 
     // ---- internals ------------------------------------------------------

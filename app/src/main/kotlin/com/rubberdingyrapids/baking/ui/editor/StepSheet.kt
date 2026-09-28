@@ -111,7 +111,8 @@ private val fractionChoices = listOf(0.5 to "½", 1.0 / 3 to "⅓", 0.25 to "¼"
 @Composable
 fun StepSheet(
     existing: Step?,
-    index: Int,
+    /** 1-based number of the step being edited, or null for a new one. */
+    stepNumber: Int?,
     availableItems: List<FlowItem>,
     onDismiss: () -> Unit,
     onSubmit: (Step) -> Unit,
@@ -143,7 +144,7 @@ fun StepSheet(
     val valid = currentAction != null &&
         (!currentAction.requiresInputs || portions.isNotEmpty()) &&
         (currentAction != ActionType.CUSTOM || customLabel.isNotBlank()) &&
-        (!currentAction.hasDuration || durationSeconds > 0)
+        (!currentAction.requiresDuration || durationSeconds > 0)
 
     fun submit() {
         val act = action ?: return
@@ -156,7 +157,7 @@ fun StepSheet(
                 inputs = inputs,
                 outputName = shownName.trim(),
                 note = note.trim(),
-                durationSeconds = if (act.hasDuration) durationSeconds else null,
+                durationSeconds = if (act.hasDuration && durationSeconds > 0) durationSeconds else null,
                 temperature = if (act.hasTemperature) tempText.toIntOrNull()?.let { Temperature(it, tempScale) } else null,
                 preheat = act.hasTemperature && preheat,
             ),
@@ -173,7 +174,13 @@ fun StepSheet(
                 .padding(bottom = 32.dp),
         ) {
             if (currentAction == null) {
-                Text("Step ${index + 1}: what happens next?", style = MaterialTheme.typography.titleLarge)
+                Text("What happens next?", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Steps that use different ingredients run side by side. Use the result of two steps in one step to bring them back together.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(16.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -207,8 +214,9 @@ fun StepSheet(
                     }
                     Icon(actionIcon(currentAction), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
+                    val prefix = if (stepNumber != null) "Step $stepNumber" else "New step"
                     Text(
-                        if (currentAction == ActionType.CUSTOM) "Step ${index + 1}" else "Step ${index + 1}: ${currentAction.label}",
+                        if (currentAction == ActionType.CUSTOM) prefix else "$prefix: ${currentAction.label}",
                         style = MaterialTheme.typography.titleLarge,
                     )
                 }
@@ -245,7 +253,8 @@ fun StepSheet(
                 }
 
                 if (currentAction.hasDuration) {
-                    SectionHeader(if (currentAction == ActionType.BAKE) "Bake for" else "Wait for")
+                    val verb = if (currentAction == ActionType.WAIT) "Wait for" else "${currentAction.label} for"
+                    SectionHeader(if (currentAction.requiresDuration) verb else "$verb (optional)")
                     DurationField(totalSeconds = durationSeconds, onChange = { durationSeconds = it }, modifier = Modifier.fillMaxWidth())
                 }
 

@@ -1,8 +1,3 @@
-@file:OptIn(
-    androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
-)
-
 package com.rubberdingyrapids.baking.ui.cook
 
 import androidx.lifecycle.SavedStateHandle
@@ -15,10 +10,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.toRoute
 import com.rubberdingyrapids.baking.BakingApp
 import com.rubberdingyrapids.baking.core.data.RecipeStore
+import com.rubberdingyrapids.baking.core.flow.FlowAnalysis
 import com.rubberdingyrapids.baking.core.flow.FlowEngine
-import com.rubberdingyrapids.baking.core.flow.StepAnalysis
+import com.rubberdingyrapids.baking.core.flow.FlowLayout
+import com.rubberdingyrapids.baking.core.flow.FlowLayoutEngine
 import com.rubberdingyrapids.baking.core.format.TimeFormat
 import com.rubberdingyrapids.baking.core.model.Recipe
+import com.rubberdingyrapids.baking.core.model.Step
 import com.rubberdingyrapids.baking.core.model.Temperature
 import com.rubberdingyrapids.baking.timer.ActiveTimer
 import com.rubberdingyrapids.baking.timer.TimerManager
@@ -26,15 +24,27 @@ import com.rubberdingyrapids.baking.ui.CookRoute
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 enum class CookPhase { GATHER, COOK }
 
-/** One tile in the cook-mode flow chart: either the preheat reminder or a real step. */
-sealed class CookItem(val id: String) {
-    class Preheat(val temperature: Temperature?) : CookItem(PREHEAT_ID)
-    class StepItem(val analysis: StepAnalysis) : CookItem(analysis.step.id)
+/** Everything derived from the recipe once, shared by the cook screen. */
+data class CookPlan(
+    val recipe: Recipe,
+    val analysis: FlowAnalysis,
+    val layout: FlowLayout,
+    val dependencies: Map<String, Set<String>>,
+    /** Oven temperature for the preheat reminder, when any bake step asks for one. */
+    val preheat: Temperature?,
+    val hasPreheat: Boolean,
+) {
+    /** Ids of everything that has to be ticked: the preheat reminder plus every step. */
+    val allIds: List<String> = buildList {
+        if (hasPreheat) add(PREHEAT_ID)
+        recipe.steps.forEach { add(it.id) }
+    }
+
+    fun step(id: String): Step? = recipe.steps.firstOrNull { it.id == id }
 
     companion object {
         const val PREHEAT_ID = "preheat"
@@ -43,29 +53,44 @@ sealed class CookItem(val id: String) {
 
 data class CookUiState(
     val loaded: Boolean,
-    val recipe: Recipe?,
+    val plan: CookPlan?,
     val scale: Float,
     val phase: CookPhase,
     val checkedIngredients: Set<String>,
     val completed: Set<String>,
     val expandedStepId: String?,
-    val items: List<CookItem>,
     val timers: Map<String, ActiveTimer>,
 ) {
+    val recipe: Recipe? get() = plan?.recipe
+
     val allIngredientsChecked: Boolean
         get() = recipe != null && recipe.ingredients.all { it.id in checkedIngredients }
 
-    /** Index of the step the cook is on, or null when everything is done. */
-    val currentIndex: Int?
-        get() = items.indexOfFirst { it.id !in completed }.takeIf { it >= 0 }
+    /** Steps the cook can work on right now: not done, and everything they use is done. */
+    val activeIds: Set<String>
+        get() {
+            val p = plan ?: return emptySet()
+            return p.allIds.filter { id ->
+                id !in completed && (p.dependencies[id] ?: emptySet()).all { it in completed }
+            }.toSet()
+        }
 
-    val isFinished: Boolean get() = items.isNotEmpty() && currentIndex == null
+    val doneCount: Int get() = plan?.allIds?.count { it in completed } ?: 0
+    val totalCount: Int get() = plan?.allIds?.size ?: 0
+    val isFinished: Boolean get() = totalCount > 0 && doneCount == totalCount
 
-    fun timerFor(item: CookItem): ActiveTimer? = recipe?.let { timers[TimerManager.key(it.id, item.id)] }
+    /** A completed item can be unticked as long as nothing done depends on it. */
+    fun canUncomplete(id: String): Boolean {
+        val p = plan ?: return false
+        return id in completed && p.dependencies.none { (other, deps) -> other in completed && id in deps }
+    }
+
+    fun timerFor(stepId: String): ActiveTimer? = recipe?.let { timers[TimerManager.key(it.id, stepId)] }
 }
 
 /**
- * Drives cook mode: the gather-ingredients checklist, then the step flow.
+ * Drives cook mode: the gather-ingredients checklist, then the branched step
+ * flow where every step whose inputs are ready can be worked on at once.
  * Progress lives in the [SavedStateHandle] so rotating the phone or switching
  * apps never loses the cook's place; timers live in [TimerManager] so they
  * ring even if the process dies.
@@ -83,40 +108,39 @@ class CookViewModel(
     private val completed = handle.getStateFlow<ArrayList<String>>(KEY_COMPLETED, arrayListOf())
     private val expanded = handle.getStateFlow<String?>(KEY_EXPANDED, null)
 
-    private val recipeFlow = combine(store.loaded, store.recipes) { loaded, recipes ->
-        loaded to recipes.firstOrNull { it.id == recipeId }?.scaled(scale.toDouble())
+    private val planFlow = combine(store.loaded, store.recipes) { loaded, recipes ->
+        loaded to recipes.firstOrNull { it.id == recipeId }?.scaled(scale.toDouble())?.let(::buildPlan)
     }
 
     val state: StateFlow<CookUiState> = combine(
-        recipeFlow, phase, checked, completed, expanded, timers.timers,
+        planFlow, phase, checked, completed, expanded, timers.timers,
     ) { values ->
         val header = values[0] as Pair<*, *>
-        val loaded = header.first as Boolean
-        val recipe = header.second as Recipe?
-        val items = recipe?.let(::buildItems) ?: emptyList()
         CookUiState(
-            loaded = loaded,
-            recipe = recipe,
+            loaded = header.first as Boolean,
+            plan = header.second as CookPlan?,
             scale = scale,
             phase = CookPhase.valueOf(values[1] as String),
             checkedIngredients = (values[2] as List<String>).toSet(),
             completed = (values[3] as List<String>).toSet(),
             expandedStepId = values[4] as String?,
-            items = items,
             timers = values[5] as Map<String, ActiveTimer>,
         )
     }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000),
-        CookUiState(false, null, scale, CookPhase.GATHER, emptySet(), emptySet(), null, emptyList(), emptyMap()),
+        CookUiState(false, null, scale, CookPhase.GATHER, emptySet(), emptySet(), null, emptyMap()),
     )
 
-    private fun buildItems(recipe: Recipe): List<CookItem> {
-        val analysis = FlowEngine.analyse(recipe)
-        val preheatTemp = recipe.steps.firstOrNull { it.preheat }?.temperature
-        val items = mutableListOf<CookItem>()
-        if (recipe.steps.any { it.preheat }) items += CookItem.Preheat(preheatTemp)
-        analysis.steps.forEach { items += CookItem.StepItem(it) }
-        return items
+    private fun buildPlan(recipe: Recipe): CookPlan {
+        val normalised = FlowEngine.normalise(recipe)
+        return CookPlan(
+            recipe = normalised,
+            analysis = FlowEngine.analyse(normalised),
+            layout = FlowLayoutEngine.layout(normalised),
+            dependencies = FlowEngine.dependencies(normalised),
+            preheat = normalised.steps.firstOrNull { it.preheat }?.temperature,
+            hasPreheat = normalised.steps.any { it.preheat },
+        )
     }
 
     // ---- gather phase ----------------------------------------------------
@@ -147,25 +171,24 @@ class CookViewModel(
     fun complete(id: String) {
         if (id in completed.value) return
         handle[KEY_COMPLETED] = ArrayList(completed.value + id)
-        handle[KEY_EXPANDED] = null
+        if (expanded.value == id) handle[KEY_EXPANDED] = null
         timers.cancel(TimerManager.key(recipeId, id))
     }
 
-    /** Only the most recently completed step can be unticked, so the order stays intact. */
     fun uncomplete(id: String) {
-        if (completed.value.lastOrNull() != id) return
+        if (!state.value.canUncomplete(id)) return
         handle[KEY_COMPLETED] = ArrayList(completed.value - id)
     }
 
-    fun startTimer(item: CookItem) {
-        val step = (item as? CookItem.StepItem)?.analysis?.step ?: return
+    fun startTimer(stepId: String) {
+        val step = state.value.plan?.step(stepId) ?: return
         val seconds = step.durationSeconds ?: return
         val label = "${step.actionLabel}: ${step.outputName.ifBlank { step.actionLabel }} (${TimeFormat.short(seconds)})"
         timers.start(TimerManager.key(recipeId, step.id), label, seconds)
     }
 
-    fun cancelTimer(item: CookItem) {
-        timers.cancel(TimerManager.key(recipeId, item.id))
+    fun cancelTimer(stepId: String) {
+        timers.cancel(TimerManager.key(recipeId, stepId))
     }
 
     fun finish() {

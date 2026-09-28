@@ -10,21 +10,40 @@ data class Ingredient(
     val quantity: Quantity,
 )
 
-/** The verbs the method screen offers. CUSTOM carries its own label. */
+/**
+ * The verbs the method screen offers, in the order they are shown. CUSTOM
+ * carries its own label. Entries are stored by name, so never remove one.
+ */
 @Serializable
-enum class ActionType(val label: String) {
-    MIX("Mix"),
-    WHISK("Whisk"),
-    MELT("Melt"),
-    ADD("Add"),
-    BAKE("Bake"),
-    WAIT("Wait"),
-    CUSTOM("Custom");
+enum class ActionType(
+    val label: String,
+    /** Past-tense form used when naming the result, e.g. "chopped onion". */
+    val pastTense: String,
+) {
+    CHOP("Chop", "chopped"),
+    MIX("Mix", "mixed"),
+    WHISK("Whisk", "whisked"),
+    ADD("Add", ""),
+    MELT("Melt", "melted"),
+    FRY("Fry", "fried"),
+    BOIL("Boil", "boiled"),
+    SIMMER("Simmer", "simmered"),
+    BAKE("Bake", "baked"),
+    ROAST("Roast", "roasted"),
+    WAIT("Wait", "rested"),
+    CUSTOM("Custom", "");
 
     /** Wait and custom steps may stand alone ("rest 10 minutes"); everything else needs ingredients. */
     val requiresInputs: Boolean get() = this != WAIT && this != CUSTOM
-    val hasDuration: Boolean get() = this == BAKE || this == WAIT
-    val hasTemperature: Boolean get() = this == BAKE
+
+    /** Cooking actions can carry a time so cook mode offers a timer. */
+    val hasDuration: Boolean get() = this in setOf(FRY, BOIL, SIMMER, BAKE, ROAST, WAIT)
+
+    /** Only a wait step is meaningless without a time. */
+    val requiresDuration: Boolean get() = this == WAIT
+
+    /** Oven actions take a temperature. */
+    val hasTemperature: Boolean get() = this == BAKE || this == ROAST
 }
 
 /**

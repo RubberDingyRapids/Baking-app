@@ -23,6 +23,11 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Blender
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material.icons.outlined.OutdoorGrill
+import androidx.compose.material.icons.outlined.Water
+import androidx.compose.material.icons.outlined.Waves
+import androidx.compose.material.icons.outlined.Whatshot
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
@@ -51,11 +56,16 @@ import com.rubberdingyrapids.baking.core.model.Quantity
 import com.rubberdingyrapids.baking.core.model.Step
 
 fun actionIcon(action: ActionType): ImageVector = when (action) {
+    ActionType.CHOP -> Icons.Outlined.ContentCut
     ActionType.MIX -> Icons.Outlined.Blender
     ActionType.WHISK -> Icons.Outlined.Cyclone
-    ActionType.MELT -> Icons.Outlined.WaterDrop
     ActionType.ADD -> Icons.Outlined.Add
+    ActionType.MELT -> Icons.Outlined.WaterDrop
+    ActionType.FRY -> Icons.Outlined.OutdoorGrill
+    ActionType.BOIL -> Icons.Outlined.Waves
+    ActionType.SIMMER -> Icons.Outlined.Water
     ActionType.BAKE -> Icons.Outlined.LocalFireDepartment
+    ActionType.ROAST -> Icons.Outlined.Whatshot
     ActionType.WAIT -> Icons.Outlined.HourglassEmpty
     ActionType.CUSTOM -> Icons.Outlined.Build
 }
@@ -104,6 +114,8 @@ fun StepCard(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     showNote: Boolean = true,
+    /** Tighter layout for side-by-side lanes. */
+    compact: Boolean = false,
     extraContent: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -132,26 +144,37 @@ fun StepCard(
         elevation = CardDefaults.cardElevation(defaultElevation = if (appearance == StepAppearance.Current) 3.dp else 0.dp),
         modifier = modifier.fillMaxWidth().alpha(alpha),
     ) {
-        Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.Top) {
+        val pad = if (compact) 8.dp else 12.dp
+        Row(Modifier.padding(start = pad, end = if (compact) 4.dp else 8.dp, top = pad, bottom = pad), verticalAlignment = Alignment.Top) {
             if (leading != null) {
                 leading()
                 Spacer(Modifier.width(8.dp))
             }
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (compact) {
                     ActionBadge(step, index)
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = outputName,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         textDecoration = if (appearance == StepAppearance.Completed) TextDecoration.LineThrough else null,
                     )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ActionBadge(step, index)
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = outputName,
+                            style = MaterialTheme.typography.titleMedium,
+                            textDecoration = if (appearance == StepAppearance.Completed) TextDecoration.LineThrough else null,
+                        )
+                    }
                 }
                 if (inputs.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = inputs.joinToString(" · ") { it.describe() },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurfaceVariant,
                     )
                 }

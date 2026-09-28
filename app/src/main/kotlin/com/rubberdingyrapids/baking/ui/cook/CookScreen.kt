@@ -10,7 +10,6 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,8 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Celebration
@@ -38,14 +38,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -67,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rubberdingyrapids.baking.core.flow.StepAnalysis
 import com.rubberdingyrapids.baking.core.format.TimeFormat
 import com.rubberdingyrapids.baking.core.model.Ingredient
 import com.rubberdingyrapids.baking.timer.ActiveTimer
@@ -74,6 +73,7 @@ import com.rubberdingyrapids.baking.timer.TimerNotifications
 import com.rubberdingyrapids.baking.ui.components.BottomActionBar
 import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
+import com.rubberdingyrapids.baking.ui.components.FlowChart
 import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
 import com.rubberdingyrapids.baking.ui.components.StepAppearance
@@ -83,7 +83,6 @@ import com.rubberdingyrapids.baking.ui.overview.PreheatCard
 import com.rubberdingyrapids.baking.ui.overview.formatScale
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CookScreen(
     viewModel: CookViewModel,
@@ -105,7 +104,7 @@ fun CookScreen(
                         val subtitle = when {
                             state.phase == CookPhase.GATHER -> "Get everything ready"
                             state.isFinished -> "All done"
-                            else -> "Step ${(state.currentIndex ?: 0) + 1} of ${state.items.size}"
+                            else -> "${state.doneCount} of ${state.totalCount} done"
                         } + if (state.scale != 1f) "  ·  ${formatScale(state.scale)}" else ""
                         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -120,16 +119,12 @@ fun CookScreen(
         bottomBar = {
             when {
                 recipe == null -> Unit
-                state.phase == CookPhase.GATHER && state.allIngredientsChecked -> BottomAction(
-                    label = "Start cooking",
-                    icon = Icons.Default.PlayArrow,
-                    onClick = viewModel::startCooking,
-                )
-                state.phase == CookPhase.COOK && state.isFinished -> BottomAction(
-                    label = "Finish",
-                    icon = Icons.Default.Check,
-                    onClick = { viewModel.finish(); onFinished() },
-                )
+                state.phase == CookPhase.GATHER && state.allIngredientsChecked -> BottomActionBar {
+                    BottomActionButton(label = "Start cooking", icon = Icons.Default.PlayArrow, onClick = viewModel::startCooking)
+                }
+                state.phase == CookPhase.COOK && state.isFinished -> BottomActionBar {
+                    BottomActionButton(label = "Finish", icon = Icons.Default.Check, onClick = { viewModel.finish(); onFinished() })
+                }
                 else -> Unit
             }
         },
@@ -145,13 +140,6 @@ fun CookScreen(
     }
 }
 
-@Composable
-private fun BottomAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    BottomActionBar {
-        BottomActionButton(label = label, icon = icon, onClick = onClick)
-    }
-}
-
 // ---- phase 1: gather ingredients -------------------------------------------
 
 @Composable
@@ -164,7 +152,7 @@ private fun GatherContent(state: CookUiState, viewModel: CookViewModel, padding:
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "Tick each ingredient as you weigh it out.",
+                    "Tick each ingredient as you get it out.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -227,7 +215,9 @@ private fun IngredientCheckRow(ingredient: Ingredient, checked: Boolean, onToggl
 
 @Composable
 private fun FlowContent(state: CookUiState, viewModel: CookViewModel, padding: PaddingValues) {
-    // Keep the screen awake while cooking; hands are usually covered in flour.
+    val plan = state.plan ?: return
+
+    // Keep the screen awake while cooking; hands are usually busy.
     val view = LocalView.current
     DisposableEffect(Unit) {
         view.keepScreenOn = true
@@ -246,106 +236,150 @@ private fun FlowContent(state: CookUiState, viewModel: CookViewModel, padding: P
 
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    fun startTimerWithPermission(item: CookItem) {
+    fun startTimerWithPermission(stepId: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !TimerNotifications.canPost(context)) {
             permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        viewModel.startTimer(item)
+        viewModel.startTimer(stepId)
     }
 
-    val currentIndex = state.currentIndex
-    val lastCompleted = state.completed.lastOrNull()
+    val active = state.activeIds
 
-    LazyColumn(
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
-        modifier = Modifier.fillMaxSize().padding(padding),
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
-            val completed = item.id in state.completed
-            val isCurrent = index == currentIndex
-            val appearance = when {
-                completed -> StepAppearance.Completed
-                isCurrent -> StepAppearance.Current
-                else -> StepAppearance.Locked
-            }
-            Column(Modifier.animateContentSize()) {
-                if (index > 0) FlowConnector(muted = !isCurrent && !completed)
-                when (item) {
-                    is CookItem.Preheat -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = completed,
-                            enabled = isCurrent || (completed && item.id == lastCompleted),
-                            onCheckedChange = { if (it) viewModel.complete(item.id) else viewModel.uncomplete(item.id) },
-                        )
-                        PreheatCard(item.temperature?.format(), muted = !isCurrent, modifier = Modifier.weight(1f))
-                    }
-                    is CookItem.StepItem -> {
-                        val expanded = state.expandedStepId == item.id && isCurrent
-                        StepCard(
-                            step = item.analysis.step,
-                            index = state.items.indexOf(item) - (if (state.items.firstOrNull() is CookItem.Preheat) 1 else 0),
-                            inputs = item.analysis.inputs,
-                            issues = emptyList(),
-                            appearance = appearance,
-                            onClick = if (isCurrent) ({ viewModel.toggleExpanded(item.id) }) else null,
-                            showNote = expanded,
-                            leading = {
-                                Checkbox(
-                                    checked = completed,
-                                    enabled = isCurrent || (completed && item.id == lastCompleted),
-                                    onCheckedChange = { if (it) viewModel.complete(item.id) else viewModel.uncomplete(item.id) },
-                                )
-                            },
-                            extraContent = if (isCurrent) {
-                                {
-                                    if (expanded) StepDetails(item)
-                                    val step = item.analysis.step
-                                    if (step.action.hasDuration && (step.durationSeconds ?: 0) > 0) {
-                                        TimerControls(
-                                            durationSeconds = step.durationSeconds ?: 0,
-                                            timer = state.timerFor(item),
-                                            now = now,
-                                            onStart = { startTimerWithPermission(item) },
-                                            onCancel = { viewModel.cancelTimer(item) },
-                                        )
-                                    }
-                                }
-                            } else null,
-                        )
-                    }
-                }
-            }
+        if (active.size > 1) {
+            Text(
+                "${active.size} things can happen now. Tick each one when it's done.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
         }
+
+        if (plan.hasPreheat) {
+            val id = CookPlan.PREHEAT_ID
+            val done = id in state.completed
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = done,
+                    enabled = id in active || state.canUncomplete(id),
+                    onCheckedChange = { if (it) viewModel.complete(id) else viewModel.uncomplete(id) },
+                )
+                PreheatCard(plan.preheat?.format(), muted = done, modifier = Modifier.weight(1f))
+            }
+            FlowConnector(muted = done)
+        }
+
+        FlowChart(
+            analysis = plan.analysis,
+            layout = plan.layout,
+            mutedLane = { node -> node.stepId in state.completed },
+        ) { stepAnalysis, _, compact ->
+            CookStepCard(
+                stepAnalysis = stepAnalysis,
+                state = state,
+                isActive = stepAnalysis.step.id in active,
+                compact = compact,
+                now = now,
+                onToggleExpanded = { viewModel.toggleExpanded(stepAnalysis.step.id) },
+                onComplete = { viewModel.complete(stepAnalysis.step.id) },
+                onUncomplete = { viewModel.uncomplete(stepAnalysis.step.id) },
+                onStartTimer = { startTimerWithPermission(stepAnalysis.step.id) },
+                onCancelTimer = { viewModel.cancelTimer(stepAnalysis.step.id) },
+            )
+        }
+
         if (state.isFinished) {
-            item(key = "done") {
-                Spacer(Modifier.height(16.dp))
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Celebration, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "Every step is done. Enjoy!",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
+            Spacer(Modifier.height(16.dp))
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Celebration, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Every step is done. Enjoy!",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
                 }
             }
         }
+        Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun StepDetails(item: CookItem.StepItem) {
-    val step = item.analysis.step
+private fun CookStepCard(
+    stepAnalysis: StepAnalysis,
+    state: CookUiState,
+    isActive: Boolean,
+    compact: Boolean,
+    now: Long,
+    onToggleExpanded: () -> Unit,
+    onComplete: () -> Unit,
+    onUncomplete: () -> Unit,
+    onStartTimer: () -> Unit,
+    onCancelTimer: () -> Unit,
+) {
+    val step = stepAnalysis.step
+    val completed = step.id in state.completed
+    val appearance = when {
+        completed -> StepAppearance.Completed
+        isActive -> StepAppearance.Current
+        else -> StepAppearance.Locked
+    }
+    val expanded = state.expandedStepId == step.id && isActive
+    StepCard(
+        step = step,
+        index = stepAnalysis.index,
+        inputs = stepAnalysis.inputs,
+        issues = emptyList(),
+        appearance = appearance,
+        compact = compact,
+        onClick = if (isActive) onToggleExpanded else null,
+        showNote = expanded,
+        leading = {
+            Checkbox(
+                checked = completed,
+                enabled = isActive || state.canUncomplete(step.id),
+                onCheckedChange = { if (it) onComplete() else onUncomplete() },
+                modifier = if (compact) Modifier.padding(0.dp) else Modifier,
+            )
+        },
+        extraContent = if (isActive) {
+            {
+                if (expanded) StepDetails(stepAnalysis)
+                val seconds = step.durationSeconds ?: 0
+                if (step.action.hasDuration && seconds > 0) {
+                    TimerControls(
+                        durationSeconds = seconds,
+                        timer = state.timerFor(step.id),
+                        now = now,
+                        compact = compact,
+                        onStart = onStartTimer,
+                        onCancel = onCancelTimer,
+                    )
+                }
+            }
+        } else null,
+    )
+}
+
+@Composable
+private fun StepDetails(item: StepAnalysis) {
+    val step = item.step
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-        if (item.analysis.inputs.isNotEmpty()) {
+        if (item.inputs.isNotEmpty()) {
             Text("You need", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            item.analysis.inputs.forEach { input ->
+            item.inputs.forEach { input ->
                 Row(Modifier.padding(vertical = 2.dp)) {
                     Text("•  ", style = MaterialTheme.typography.bodyLarge)
                     Text(input.describe(), style = MaterialTheme.typography.bodyLarge)
@@ -356,7 +390,7 @@ private fun StepDetails(item: CookItem.StepItem) {
             Spacer(Modifier.height(6.dp))
             Text(step.note, style = MaterialTheme.typography.bodyLarge)
         }
-        if (item.analysis.inputs.isEmpty() && step.note.isBlank()) {
+        if (item.inputs.isEmpty() && step.note.isBlank()) {
             Text("No extra details for this step.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -367,6 +401,7 @@ private fun TimerControls(
     durationSeconds: Int,
     timer: ActiveTimer?,
     now: Long,
+    compact: Boolean,
     onStart: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -374,35 +409,35 @@ private fun TimerControls(
         timer == null -> Button(onClick = onStart, shape = RoundedCornerShape(12.dp)) {
             Icon(Icons.Outlined.Alarm, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Start timer · ${TimeFormat.short(durationSeconds)}")
+            Text(if (compact) TimeFormat.short(durationSeconds) else "Start timer · ${TimeFormat.short(durationSeconds)}")
         }
-        timer.isFinished(now) -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-            Text("Time's up!", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
+        timer.isFinished(now) -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                Spacer(Modifier.width(6.dp))
+                Text("Time's up!", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.tertiary)
+            }
             OutlinedButton(onClick = onCancel) { Text("Dismiss") }
         }
         else -> {
             val remaining = timer.remainingSeconds(now)
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        TimeFormat.clock(remaining),
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 34.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedButton(onClick = onCancel) {
-                        Icon(Icons.Default.Stop, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Cancel")
-                    }
-                }
+                Text(
+                    TimeFormat.clock(remaining),
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (compact) 24.sp else 34.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 LinearProgressIndicator(
                     progress = { 1f - remaining.toFloat() / timer.durationSeconds.coerceAtLeast(1) },
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 )
+                OutlinedButton(onClick = onCancel, modifier = Modifier.padding(top = 6.dp)) {
+                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Cancel")
+                }
             }
         }
     }

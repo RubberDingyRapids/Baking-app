@@ -95,18 +95,16 @@ class EditorViewModel(
 
     // ---- method ----------------------------------------------------------
 
-    fun addStep(step: Step) = update { it.copy(steps = it.steps + step) }
+    fun addStep(step: Step) = update { FlowEngine.normalise(it.copy(steps = it.steps + step)) }
 
     fun updateStep(step: Step) = update { recipe ->
-        recipe.copy(steps = recipe.steps.map { if (it.id == step.id) step else it })
+        FlowEngine.normalise(recipe.copy(steps = recipe.steps.map { if (it.id == step.id) step else it }))
     }
 
     fun deleteStep(stepId: String) = update { FlowEngine.deleteStep(it, stepId) }
 
-    fun moveStep(from: Int, to: Int) = update { FlowEngine.moveStep(it, from, to) }
-
-    /** Items that can be used by the step at [index] (use steps.size for a new step). */
-    fun availableItems(index: Int): List<FlowItem> = FlowEngine.availableItems(_draft.value, index)
+    /** Items a step may use: everything not downstream of it. Null means a brand new step. */
+    fun editableItems(stepId: String?): List<FlowItem> = FlowEngine.editableItems(_draft.value, stepId)
 
     fun analysis(): FlowAnalysis = FlowEngine.analyse(_draft.value)
 

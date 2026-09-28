@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -51,12 +50,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rubberdingyrapids.baking.core.flow.FlowEngine
+import com.rubberdingyrapids.baking.core.flow.FlowLayoutEngine
 import com.rubberdingyrapids.baking.core.model.Quantity
 import com.rubberdingyrapids.baking.core.model.Recipe
 import com.rubberdingyrapids.baking.ui.app
 import com.rubberdingyrapids.baking.ui.components.BottomActionBar
 import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
+import com.rubberdingyrapids.baking.ui.components.FlowChart
 import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
 import com.rubberdingyrapids.baking.ui.components.SectionHeader
@@ -125,6 +126,7 @@ fun OverviewScreen(
 private fun OverviewContent(recipe: Recipe, scale: Float, onScaleChange: (Float) -> Unit, padding: PaddingValues) {
     val scaled = remember(recipe, scale) { recipe.scaled(scale.toDouble()) }
     val analysis = remember(scaled) { FlowEngine.analyse(scaled) }
+    val layout = remember(scaled) { FlowLayoutEngine.layout(scaled) }
     val preheat = remember(scaled) { scaled.steps.firstOrNull { it.preheat }?.temperature }
 
     LazyColumn(
@@ -183,19 +185,24 @@ private fun OverviewContent(recipe: Recipe, scale: Float, onScaleChange: (Float)
         if (scaled.steps.isEmpty()) {
             item { Text("No steps yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        if (preheat != null || scaled.steps.any { it.preheat }) {
+        if (scaled.steps.any { it.preheat }) {
             item(key = "preheat") {
                 PreheatCard(preheat?.format())
+                FlowConnector()
             }
         }
-        itemsIndexed(analysis.steps, key = { _, a -> "step-${a.step.id}" }) { index, stepAnalysis ->
-            if (index > 0 || preheat != null || scaled.steps.any { it.preheat }) FlowConnector()
-            StepCard(
-                step = stepAnalysis.step,
-                index = index,
-                inputs = stepAnalysis.inputs,
-                issues = stepAnalysis.issues,
-            )
+        if (scaled.steps.isNotEmpty()) {
+            item(key = "chart") {
+                FlowChart(analysis = analysis, layout = layout) { stepAnalysis, _, compact ->
+                    StepCard(
+                        step = stepAnalysis.step,
+                        index = stepAnalysis.index,
+                        inputs = stepAnalysis.inputs,
+                        issues = stepAnalysis.issues,
+                        compact = compact,
+                    )
+                }
+            }
         }
     }
 }
