@@ -78,7 +78,6 @@ import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
 import com.rubberdingyrapids.baking.ui.components.StepAppearance
 import com.rubberdingyrapids.baking.ui.components.StepCard
-import com.rubberdingyrapids.baking.ui.components.describe
 import com.rubberdingyrapids.baking.ui.overview.PreheatCard
 import com.rubberdingyrapids.baking.ui.overview.formatScale
 import kotlinx.coroutines.delay

@@ -53,7 +53,6 @@ import com.rubberdingyrapids.baking.core.flow.FlowIssue
 import com.rubberdingyrapids.baking.core.flow.ResolvedInput
 import com.rubberdingyrapids.baking.core.format.TimeFormat
 import com.rubberdingyrapids.baking.core.model.ActionType
-import com.rubberdingyrapids.baking.core.model.Quantity
 import com.rubberdingyrapids.baking.core.model.Step
 
 fun actionIcon(action: ActionType): ImageVector = when (action) {
@@ -74,21 +73,6 @@ fun actionIcon(action: ActionType): ImageVector = when (action) {
 
 /** How a step tile is drawn depending on where the cook is in the flow. */
 enum class StepAppearance { Normal, Current, Locked, Completed }
-
-fun ResolvedInput.describe(): String {
-    if (wholeItem) return itemName
-    val amount = consumed?.format() ?: fractionLabel(consumedFraction)
-    return "$itemName ($amount)"
-}
-
-private fun fractionLabel(fraction: Double): String = when {
-    kotlin.math.abs(fraction - 0.5) < 0.01 -> "½"
-    kotlin.math.abs(fraction - 1.0 / 3) < 0.01 -> "⅓"
-    kotlin.math.abs(fraction - 0.25) < 0.01 -> "¼"
-    kotlin.math.abs(fraction - 2.0 / 3) < 0.01 -> "⅔"
-    kotlin.math.abs(fraction - 0.75) < 0.01 -> "¾"
-    else -> "${Quantity.formatNumber(fraction * 100)}%"
-}
 
 /** Small vertical connector drawn between two step tiles in the flow chart. */
 @Composable

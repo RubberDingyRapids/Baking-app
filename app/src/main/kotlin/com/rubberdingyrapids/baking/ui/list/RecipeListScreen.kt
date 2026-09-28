@@ -5,6 +5,10 @@
 
 package com.rubberdingyrapids.baking.ui.list
 
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,11 +30,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,33 +60,67 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rubberdingyrapids.baking.core.model.Recipe
 import com.rubberdingyrapids.baking.core.search.RecipeSearch
+import com.rubberdingyrapids.baking.share.ShareActions
 import com.rubberdingyrapids.baking.ui.app
 import com.rubberdingyrapids.baking.ui.components.EmptyState
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
 import com.rubberdingyrapids.baking.ui.components.TagChip
+import com.rubberdingyrapids.baking.ui.share.ImportLinkDialog
 
 @Composable
 fun RecipeListScreen(
     onAddRecipe: () -> Unit,
     onEditRecipe: (String) -> Unit,
     onOpenRecipe: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    val store = app().store
+    val app = app()
+    val store = app.store
+    val context = LocalContext.current
     val loaded by store.loaded.collectAsStateWithLifecycle()
     val recipes by store.recipes.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(recipes, query) { RecipeSearch.filter(recipes, query) }
 
+    var menuOpen by remember { mutableStateOf(false) }
+    var linkDialog by remember { mutableStateOf<String?>(null) }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(app.imports::importFromUri)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Recipes", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
+                    IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Import from file") },
+                            leadingIcon = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
+                            onClick = { menuOpen = false; filePicker.launch(arrayOf("*/*")) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Import from link") },
+                            leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null) },
+                            onClick = { menuOpen = false; linkDialog = clipboardLink(context) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export all recipes") },
+                            leadingIcon = { Icon(Icons.Outlined.Upload, contentDescription = null) },
+                            enabled = recipes.isNotEmpty(),
+                            onClick = { menuOpen = false; ShareActions.shareLibraryFile(context, recipes) },
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -142,6 +187,21 @@ fun RecipeListScreen(
             }
         }
     }
+
+    linkDialog?.let { initial ->
+        ImportLinkDialog(
+            initial = initial,
+            onDismiss = { linkDialog = null },
+            onImport = { link -> linkDialog = null; app.imports.importFromLink(link) },
+        )
+    }
+}
+
+/** The clipboard's text if it looks like a link, so pasting is one tap fewer. */
+private fun clipboardLink(context: Context): String {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    val text = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+    return Regex("https?://\\S+").find(text)?.value.orEmpty()
 }
 
 /** Full-width tile in the same style as the Things-to-do app's folder cards. */

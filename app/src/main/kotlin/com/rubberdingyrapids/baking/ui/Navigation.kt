@@ -26,6 +26,8 @@ import com.rubberdingyrapids.baking.ui.editor.MethodScreen
 import com.rubberdingyrapids.baking.ui.editor.RecipeFormScreen
 import com.rubberdingyrapids.baking.ui.list.RecipeListScreen
 import com.rubberdingyrapids.baking.ui.overview.OverviewScreen
+import com.rubberdingyrapids.baking.ui.settings.SettingsScreen
+import com.rubberdingyrapids.baking.ui.share.ImportDialogHost
 import kotlinx.serialization.Serializable
 
 @Serializable object RecipeListRoute
@@ -39,6 +41,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class OverviewRoute(val recipeId: String)
 @Serializable data class CookRoute(val recipeId: String, val scale: Float = 1f)
+@Serializable object SettingsRoute
 
 @Composable
 fun app(): BakingApp = LocalContext.current.applicationContext as BakingApp
@@ -46,13 +49,19 @@ fun app(): BakingApp = LocalContext.current.applicationContext as BakingApp
 @Composable
 fun BakingNavHost() {
     val navController = rememberNavController()
+    ImportDialogHost()
     NavHost(navController = navController, startDestination = RecipeListRoute) {
         composable<RecipeListRoute> {
             RecipeListScreen(
                 onAddRecipe = { navController.navigate(EditorRoute()) },
                 onEditRecipe = { id -> navController.navigate(EditorRoute(id)) },
                 onOpenRecipe = { id -> navController.navigate(OverviewRoute(id)) },
+                onOpenSettings = { navController.navigate(SettingsRoute) },
             )
+        }
+
+        composable<SettingsRoute> {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
 
         navigation<EditorRoute>(startDestination = EditorFormRoute) {
@@ -96,6 +105,7 @@ fun BakingNavHost() {
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(EditorRoute(route.recipeId)) },
                 onStart = { scale -> navController.navigate(CookRoute(route.recipeId, scale)) },
+                onOpenSettings = { navController.navigate(SettingsRoute) },
             )
         }
 

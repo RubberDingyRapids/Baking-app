@@ -1,5 +1,6 @@
 package com.rubberdingyrapids.baking
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,5 +24,13 @@ class MainActivity : ComponentActivity() {
                 BakingNavHost()
             }
         }
+        // Only on a fresh launch: a rotation must not re-import the same file.
+        if (savedInstanceState == null) (application as BakingApp).imports.handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        (application as BakingApp).imports.handleIntent(intent)
     }
 }

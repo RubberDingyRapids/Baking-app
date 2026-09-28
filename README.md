@@ -27,8 +27,30 @@ cook it.
   whose inputs are ready is active at once, each with its own timer that
   rings even when the app is in the background. The screen stays awake while
   cooking.
-- Everything is stored on the device as JSON, ready for export and sharing
-  later.
+- Sharing: send a recipe as a `.cookbook.json` file (opens straight into the
+  app on the other phone), as plain text for people without the app, or as a
+  link published to a small JSON store. Export and import the whole library
+  as one file for backups.
+- Everything is stored on the device as JSON.
+
+## Sharing links and your own server
+
+"Share a link" uploads the recipe to the server set in Settings and hands
+you a link. It defaults to [JsonBin](https://jsonbin.io); paste your JsonBin
+master key into Settings and it works. The protocol is tiny, so the same
+setting can point at a home server instead:
+
+- `POST <server url>` with the recipe JSON as the request body. Reply with
+  JSON containing an id, either `{"id": "..."}` or
+  `{"metadata": {"id": "..."}}`.
+- `GET <server url>/<id>` returns the recipe JSON, optionally wrapped as
+  `{"record": ...}`.
+- If an API key is set in the app it is sent as the `X-Master-Key` header
+  on both requests. Two informational headers are also sent on publish:
+  `X-Bin-Name` (the recipe name) and `X-Bin-Private: false`.
+
+The app imports links on the "Import from link" menu item (pre-filled from
+the clipboard), and taps on `api.jsonbin.io` links where Android allows it.
 
 ## Project layout
 

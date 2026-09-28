@@ -38,7 +38,23 @@ data class ResolvedInput(
     /** Share of the item consumed by this step, 0..1. */
     val consumedFraction: Double,
     val wholeItem: Boolean,
-)
+) {
+    /** "butter" for a whole item, "butter (100 g)" or "eggs (½)" for part of one. */
+    fun describe(): String {
+        if (wholeItem) return itemName
+        val amount = consumed?.format() ?: fractionLabel(consumedFraction)
+        return "$itemName ($amount)"
+    }
+
+    private fun fractionLabel(fraction: Double): String = when {
+        kotlin.math.abs(fraction - 0.5) < 0.01 -> "½"
+        kotlin.math.abs(fraction - 1.0 / 3) < 0.01 -> "⅓"
+        kotlin.math.abs(fraction - 0.25) < 0.01 -> "¼"
+        kotlin.math.abs(fraction - 2.0 / 3) < 0.01 -> "⅔"
+        kotlin.math.abs(fraction - 0.75) < 0.01 -> "¾"
+        else -> "${Quantity.formatNumber(fraction * 100)}%"
+    }
+}
 
 sealed class FlowIssue(val message: String) {
     class MissingItem(val itemId: String) :
