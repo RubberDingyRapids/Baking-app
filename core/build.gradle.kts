@@ -1,8 +1,8 @@
 // Pure Kotlin module: recipe model, flow-chart engine, units, storage.
 // Has no Android dependency so it can be compiled and unit tested anywhere.
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kotlin.serialization)
+    id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 java {
