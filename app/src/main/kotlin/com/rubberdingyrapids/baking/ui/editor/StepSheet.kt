@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -300,11 +301,20 @@ fun StepSheet(
                 OutlinedTextField(
                     value = shownName,
                     onValueChange = { text ->
+                        // Once the cook has touched this field it stays theirs, even when cleared.
                         outputName = text
-                        nameEdited = text.isNotBlank()
+                        nameEdited = true
                     },
                     label = { Text("Call it") },
+                    placeholder = { Text(suggestedName) },
                     supportingText = if (!nameEdited) ({ Text("Suggested from what you selected. Tap to rename.") }) else null,
+                    trailingIcon = if (nameEdited && suggestedName.isNotBlank()) {
+                        {
+                            IconButton(onClick = { nameEdited = false; outputName = "" }) {
+                                Icon(Icons.Outlined.Refresh, contentDescription = "Use the suggested name")
+                            }
+                        }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
