@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rubberdingyrapids.baking.core.model.Ingredient
+import com.rubberdingyrapids.baking.ui.components.BottomActionBar
+import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,16 +72,8 @@ fun IngredientsScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
-                Button(
-                    onClick = onAddIngredient,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Add ingredient")
-                }
+            BottomActionBar {
+                BottomActionButton(label = "Add ingredient", icon = Icons.Default.Add, onClick = onAddIngredient)
             }
         },
     ) { padding ->

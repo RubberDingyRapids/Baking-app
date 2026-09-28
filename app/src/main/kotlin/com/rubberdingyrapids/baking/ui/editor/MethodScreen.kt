@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rubberdingyrapids.baking.core.flow.FlowEngine
 import com.rubberdingyrapids.baking.core.model.Step
+import com.rubberdingyrapids.baking.ui.components.BottomActionBar
+import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
 import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.StepCard
@@ -89,16 +91,12 @@ fun MethodScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
-                Button(
+            BottomActionBar {
+                BottomActionButton(
+                    label = "Add step",
+                    icon = Icons.Default.Add,
                     onClick = { sheet = SheetTarget(null, draft.steps.size) },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Add step")
-                }
+                )
             }
         },
     ) { padding ->

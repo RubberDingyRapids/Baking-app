@@ -71,6 +71,8 @@ import com.rubberdingyrapids.baking.core.format.TimeFormat
 import com.rubberdingyrapids.baking.core.model.Ingredient
 import com.rubberdingyrapids.baking.timer.ActiveTimer
 import com.rubberdingyrapids.baking.timer.TimerNotifications
+import com.rubberdingyrapids.baking.ui.components.BottomActionBar
+import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
 import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
@@ -145,16 +147,8 @@ fun CookScreen(
 
 @Composable
 private fun BottomAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    Surface(tonalElevation = 3.dp) {
-        Button(
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Icon(icon, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.titleMedium)
-        }
+    BottomActionBar {
+        BottomActionButton(label = label, icon = icon, onClick = onClick)
     }
 }
 

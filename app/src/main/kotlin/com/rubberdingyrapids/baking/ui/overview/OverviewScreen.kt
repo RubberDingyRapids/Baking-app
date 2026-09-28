@@ -54,6 +54,8 @@ import com.rubberdingyrapids.baking.core.flow.FlowEngine
 import com.rubberdingyrapids.baking.core.model.Quantity
 import com.rubberdingyrapids.baking.core.model.Recipe
 import com.rubberdingyrapids.baking.ui.app
+import com.rubberdingyrapids.baking.ui.components.BottomActionBar
+import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.EmptyState
 import com.rubberdingyrapids.baking.ui.components.FlowConnector
 import com.rubberdingyrapids.baking.ui.components.LoadingBox
@@ -98,17 +100,13 @@ fun OverviewScreen(
         },
         bottomBar = {
             if (recipe != null) {
-                Surface(tonalElevation = 3.dp) {
-                    Button(
+                BottomActionBar {
+                    BottomActionButton(
+                        label = "Start",
+                        icon = Icons.Default.PlayArrow,
                         onClick = { onStart(scale) },
                         enabled = recipe.ingredients.isNotEmpty() || recipe.steps.isNotEmpty(),
-                        modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Start", style = MaterialTheme.typography.titleMedium)
-                    }
+                    )
                 }
             }
         },

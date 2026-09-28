@@ -59,6 +59,8 @@ import com.rubberdingyrapids.baking.core.data.IngredientSuggestions
 import com.rubberdingyrapids.baking.core.model.Ingredient
 import com.rubberdingyrapids.baking.core.model.MeasureUnit
 import com.rubberdingyrapids.baking.core.model.Quantity
+import com.rubberdingyrapids.baking.ui.components.BottomActionBar
+import com.rubberdingyrapids.baking.ui.components.BottomActionButton
 import com.rubberdingyrapids.baking.ui.components.QuantityField
 
 /**
@@ -114,17 +116,13 @@ fun IngredientEditScreen(
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
-                Button(
+            BottomActionBar {
+                BottomActionButton(
+                    label = if (existing == null) "Add" else "Save",
+                    icon = Icons.Default.Check,
                     onClick = ::submit,
                     enabled = valid,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (existing == null) "Add" else "Save")
-                }
+                )
             }
         },
     ) { padding ->
