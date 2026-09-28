@@ -15,6 +15,8 @@ jobs:
     name: Test and build debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -38,13 +40,34 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk baking-debug.apk
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: baking-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: baking-debug.apk
           if-no-files-found: error
+
+      # Every push replaces the "dev-latest" pre-release so the newest APK is
+      # always one tap away at
+      # https://github.com/RubberDingyRapids/Baking-app/releases/download/dev-latest/baking-debug.apk
+      - name: Publish dev-latest pre-release
+        if: success() && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-latest
+          name: Latest development build
+          prerelease: true
+          body: |
+            Debug build of `${{ github.ref_name }}` at ${{ github.sha }}.
+
+            ${{ github.event.head_commit.message }}
+          files: baking-debug.apk
+          fail_on_unmatched_files: true
+          make_latest: false
 
       - name: Upload test reports
         if: failure()

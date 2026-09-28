@@ -32,6 +32,16 @@ the bowl.
 - `app/` – Jetpack Compose UI (Material 3), navigation, timers and
   notifications.
 
+## Installing the latest build
+
+Every push publishes a debug APK to the `dev-latest` pre-release:
+
+https://github.com/RubberDingyRapids/Baking-app/releases/download/dev-latest/baking-debug.apk
+
+Open that link on an Android phone, allow installs from your browser when
+asked, and the app installs. Reinstalling over an older build keeps your
+recipes.
+
 ## Building
 
 Open the project in Android Studio, or run:
